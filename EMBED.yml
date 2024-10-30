@@ -1,9 +1,6 @@
 ref1:
-  location: <21.001>
-  type: internal
-ref2: 
   location: <21.004>
   type: internal
-ref3:
+ref2:
   location: <https://github.com/Tomfersil/CpH-MetaD/>
   type: external
