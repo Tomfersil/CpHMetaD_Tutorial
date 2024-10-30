@@ -294,6 +294,9 @@ for pH in pH_values:
 plt.show()
 
 ```
+
+![alt text](images/figure2.png)
+
 ### Q3. Are there enough transitions across the full range to state that we are sampling this specific CV space?
 
 Another important property to evaluate is the convergence of the free energy difference. In a simple system such as this, convergence can be assessed by measuring the free energy difference along the simulation time. Then, we will be able to use the converged portion of the trajectory to calculate other observables and estimate standard errors.
@@ -349,6 +352,7 @@ for pH in pH_values:
     plt.show()
 
 ```
+![alt text](images/figure3.png)
 
 ### Q4. Did the free energy difference converge quickly and how much should we discard of our trajectory?
 
@@ -428,13 +432,15 @@ plt.tight_layout()
 plt.show()
 
 ```
+![alt text](images/figure4.png)
+
 ### Q5. How does the new free energy plot compare to the one obtained through the PLUMED module? How big are the error estimates?
 
 ### Q6. Attempt to reproduce the previous analyses for the Zx component of the sugar puckering. How does it compare to the $\chi$ angle? 
 
 So far, we have examined how an individual CV depends on the simulation pH and how the population balance of syn/anti and C2'/C3' endo change across the different simulations. Now, we want to compare the 2D free energy surface along all pH values and observe how the energy minima relate to each other.
 
-## Plotting 2D Free Energy Surface in function of the metadynamics CVs 
+## Plotting 2D Free Energy Surface in the function of the metadynamics CVs 
 
 First, we need to once again use the sum_hills module to read the HILLS file of each simulation and generate a file with the free energies at each grid point. The grid is defined by both CVs and, at each point, an energy value is assigned after the module sums all the Gaussians deposited during the simulation that are stored in the HILLS file. 
 
@@ -509,6 +515,11 @@ for pH in pH_values:
     plt.show() 
 
 ```
+
+![alt text](images/figure5.png)
+![alt text](images/figure6.png)
+![alt text](images/figure7.png)
+
 ### Q7. Do we identify differences in the energy minima and barriers across the different pH values? What can we say about the system?
 
 # Protonation Analysis
@@ -740,6 +751,8 @@ plt.plot(x_new,y_new)
 
 ```
 
+![alt text](images/figure8.png)
+
 Although the final pKa result is slightly underestimated by our simulations, as the experimental pKa is 9.22, the simulations were done on our approach that aims to reflect pKas in an RNA construct and not the single nucleoside. As such, this result is expected. However, one should take notice of the analysis steps required to achieve the result.
 
 Additionally, using the previous rationale, we can apply a bootstrap approach to determine some statistics on the protonation data. For instance, we evaluate the confidence in our estimates by estimating the standard error and plotting histograms of the subsamples. First, we run the function that partitions the data into blocks and generates the new samples.
@@ -784,6 +797,9 @@ for pH in pH_values:
 plt.show()
 
 ```
+
+![alt text](images/figure9.png)
+
 ### Q9. Does the protonation of a particular pH simulation exhibit more variability? If yes, then is there any biological/chemical significance?
 
 Similarly for the protonation, we can also calculate the error of our pKa estimation by performing a bootstrap procedure. To do that, first we need to define the following function:
@@ -865,8 +881,11 @@ out = bootstrap_fit(pH_values, prots, weights,HH,1000,50)
 bt_pKa_fit = np.sum(out) / len(out)
 bt_sem = np.std(out) 
 print(bt_pKa_fit,bt_sem)
+plt.xlabel('pH')
+plt.ylabel('Frequency')
 plt.hist(out)
 ```
+![alt text](images/figure10.png)
 
 ### Q10. Is the pKa estimate and the error close to the experimental data? 
 
@@ -1031,6 +1050,7 @@ plt.tight_layout()
 plt.show()
 
 ```
+![alt text](images/figure11.png)
 
 ### Q13. Compare the titration curve, the individual average protonations and the pKa estimate. How do the two approaches - binless WHAM and standard - compare to each other?
 
@@ -1125,6 +1145,7 @@ plt.hist(bts_pka,bins="auto")
 print(boot_pKa,boot_err)
 
 ```
+![alt text](images/figure12.png)
 
 ### Q14. What does the histogram look like? Is the error estimate better than the one obtained previously?
 
@@ -1200,6 +1221,8 @@ plt.show()
 
 ```
 
+![alt text](images/figure13.png)
+
 # WHAM Reweight for conformational observables
 
 With the WHAM-derived weights, we can also provide data of conformational observables, such as the chosen CVs, and calculate their reweighted properties at any given pH value. In this section, we will compute the $\chi$ angle at multiple pH values besides the ones that were simulated and interpet their information. This approach will provide a more robust description of the system as it combines data of multiple simulations to reconstruct the CV space. Note that it is important that for the method to work, there needs to be a reasonable overlap between the simulations.
@@ -1262,6 +1285,7 @@ for pH in pH_array:
 plt.show()
 
 ```
+![alt text](images/figure14.png)
 
 ### Q15. How does the syn/anti population balance change along with pH? Does it differ a lot from the initial calculations that we did?
 
@@ -1312,6 +1336,7 @@ for pH in pH_array:
 plt.show()
 
 ```
+![alt text](images/figure15.png)
 
 ### Q16. How different is the distribution of the $\chi$ angles when we look solely into C3' endo conformations? How does it depend on the pH?
 
@@ -1372,6 +1397,7 @@ plt.legend(loc='best')
 plt.show()
 
 ```
+![alt text](images/figure16.png)
 
 ### Q17. How much is the pKa estimate affected by only considering the syn states? What if we only considered the anti population? 
 
