@@ -2,7 +2,7 @@
 
 ## Aim
 
-The aim of this tutorial is to train users to perform CpH-Metadynamics simulations using the stochastic titration Constant-pH Molecular Dynamics method and PLUMED. 
+This tutorial aims to train users to perform CpH-Metadynamics simulations using the stochastic titration constant-pH Molecular Dynamics method and PLUMED. 
 
 ## Objectives
 
@@ -16,7 +16,7 @@ Upon completion of this tutorial users will be able to:
 
 ## Software Installation
 
-For this tutorial, we will need PLUMED 2.9.0, a GROMACS version 2023 patched with PLUMED and the CpHMD v3.0. The first two softwares can be installed using the instructions found [here](https://github.com/plumed/cecam2023/blob/main/software.md). For the installation of the CpHMD v3.0, we recommend visiting the [GitHub page](https://github.com/NunoFBOliveira/CpHMD_v3/tree/main) of the CpHMD method by the Machuqueiro group and installing the AMBER version. Following that installation, visit the [CpH-Metadynamics page](https://github.com/Tomfersil/CpH-MetaD/tree/main) by Tomás F. D. Silva and follow the instructions on how to patch the CpHMD v3.0 for modified AMBER $\chi$ OL3 RNA parameters and the metadynamics compatibility using PLUMED. Please follow nad cite the relevant papers mentioned in the GitHub pages. 
+We will need PLUMED 2.9.0, a GROMACS version 2023 patched with PLUMED and the CpHMD v3.0 for this tutorial. The first two softwares can be installed using the instructions found [here](https://github.com/plumed/cecam2023/blob/main/software.md). For the installation of the CpHMD v3.0, we recommend visiting the [GitHub page](https://github.com/NunoFBOliveira/CpHMD_v3/tree/main) of the CpHMD method by the Machuqueiro group and installing the AMBER version. Following that installation, visit the [CpH-Metadynamics page](https://github.com/Tomfersil/CpH-MetaD/tree/main) by Tomás F. D. Silva and follow the instructions on how to patch the CpHMD v3.0 for modified AMBER $\chi$ OL3 RNA parameters and the metadynamics compatibility using PLUMED. Please follow nad cite the relevant papers mentioned in the GitHub pages. 
 
 ## Resources
 
@@ -34,7 +34,7 @@ Constant pH Metadynamics is a methodological approach that integrates two main i
 
 ### st-CpHMD:
 
-The [st-CpHMD method](https://doi.org/10.1063/1.1497164) and other CpHMD methods aim to introduce an additional parameter into MD simulations which is the pH. The introduction of the pH relates to the fact the standard MD protocols assume fixed protonation states in their residues whereas, in biological conditions, there is residue titration dependent on the pH and the surrounding environment. While there are many valid ways to integrate the chemical potential within MD, in this work we use a start-stop approach to change the protonation state along the simulation partitioned into three main steps:
+The [st-CpHMD method](https://doi.org/10.1063/1.1497164) and other CpHMD methods aim to introduce an additional parameter into MD simulations which is the pH. The introduction of the pH relates to the fact that the standard MD protocols assume fixed protonation states in their residues whereas, in biological conditions, residue titration is dependent on the pH and the surrounding environment. While there are many valid ways to integrate the chemical potential within MD, in this work we use a start-stop approach to change the protonation state along the simulation partitioned into three main steps:
 
 - a Poisson-Boltzmann/Monte Carlo (PB/MC) step ;
 - a solvent relaxation step ;
@@ -55,6 +55,7 @@ Effectively, certain degrees of freedom are more challenging to sample and can r
 Setting up a CpH-Metadynamics simulation requires defining parameters for two sections: the CpHMD section and the PLUMED input file. Previous knowledge on [metadynamics](https://www.plumed.org/doc-v2.9/user-doc/html/advanced-methods.html) and/or CpHMD simulations is helpful.
 Examine the CpHMD.settings file. For now, let's observe the main defining settings:
 
+```
 ###  Start of CpHMD settings (pHmdp) ###
 #
 ########################################
