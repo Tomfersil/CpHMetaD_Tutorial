@@ -266,6 +266,7 @@ for pH in pH_values:
 
     #### Exercise: Try to plot the free energy in function of the $\chi$ angle CV  at the different pH values:
     # We can also plot the data as degrees instead of radians by converting rad*180/pi
+#SOLUTIONFILE=notebooks/solution.ipynb
 #HIDDEN
     plt.plot(ffChi[:,0]*180/np.pi,ffChi[:,1],label="pH"+str(pH),linewidth=2)
     plt.title("Chi Angle")
@@ -277,3 +278,488 @@ plt.show()
 ```
 
 ### Q2. Calculate the By observing the plot and examining the populations' values, what can we learn from the pH dependence of this system?
+
+Wt-metadynamics simulations depend on providing enough transitions across the defined range of the CV space to obtain sufficient sampling and a good description of the desired observables. As such, we need to examine if the number of transitions across the full CV range and if there is enough sampling in the transition regions which are typically of high energy. 
+
+```
+for pH in pH_values:
+    # Load the data from the COLVAR file
+    Chi     = np.loadtxt("COLVAR_REWEIGHT_"+str(pH))
+    # Plot the time series 
+    plt.plot(Chi[:,0]*2/1000,Chi[:,1],label="pH"+str(pH),marker="o",markevery=25,linewidth=0,alpha=0.6)
+    plt.xlabel("Time / ns")
+    plt.ylabel("$\chi$ Angle")
+    plt.legend(ncol=1)
+plt.show()
+
+```
+### Q3. Are there enough transitions across the full range to state that we are sampling this specific CV space?
+
+Another important property to evaluate is the convergence of the free energy difference. In a simple system such as this, convergence can be assessed by measuring the free energy difference along the simulation time. Then, we will be able to use the converged portion of the trajectory to calculate other observables and estimate standard errors.
+
+To obtain the convergence, we need to compute the free energy along each CV value using the sum_hills module every N steps of the simulation.
+
+```
+for pH in ["08.00", "09.00", "10.00"]:
+    !plumed sum_hills --hills data/HILLS_pH${pH} --stride 1000 --idw "chi" --kt 2.5 --outfile ff.chi_pH${pH}_
+
+```
+
+The sum_hills module is used to sum the Gaussians stored in the HILLS file by using the --hills keyword. Then it is possible to select one specific CV, using the --idw keyword, to obtain their specific bias.
+
+Then, by iterating through each pH value, we can extract the data of each file and compute the free energy difference of the minima defined by the syn/anti criterion used previously.
+
+```
+# Calculate free energy difference between syn and anti minima.
+
+# Since we defined stride=1000 in sum_hills, the tau is equivalent to 10 (1ns).
+tau=1 
+# Then we cycle through pH and each obtained free energy profile.
+for pH in pH_values:    
+    DeltaF=[]
+
+    for n in range(0,101):  
+        # Load the data for each file. 
+        filename="ff.chi_pH"+str(pH)+"_"+str(n)+".dat"
+        if os.path.isfile(filename):
+            # Import fes file into pandas dataframe
+            data=plumed.read_as_pandas(filename)
+            # Find minimum value of fes
+            minf =np.min(data["projection"])
+            F0=0.0; F1=0.0
+            
+            # Then we convert the free energy at each value of the CV 
+            for j in range(0, len(data["chi"])):
+                chi = data["chi"][j]
+                # Calculate probability
+                p = np.exp((-data["projection"][j]+minf)/KbT)
+                # And we integrate in one of the two minima
+                if(0<=chi<=2.0):   F0 += p
+                else: F1 += p
+            # Calculate free energy difference and add to list
+            DeltaF.append(-KbT*np.log(F0/F1))    
+            time = np.arange(0,len(DeltaF)*tau,tau)
+    # Then we plot the data
+    plt.plot(time,DeltaF,label="F1") 
+    plt.legend()
+    plt.title("pH"+str(pH))
+    plt.xlabel("Simulation time (ns)")
+    plt.ylabel("DeltaF [kJ/mol]")
+    plt.show()
+
+```
+
+### Q4. Did the free energy difference converge quickly and how much should we discard of our trajectory?
+
+After assessing the convergence of our simulation and defining how much should we discard, we can perform some statistics using block analysis and a bootstrap approach on the converged part of our trajectory. 
+
+First, we are going to reproduce the plot of the free energy as a function of the $\chi$ angle with the standard errors.
+
+```
+# First, we define a function to partition the trajectory into blocks
+def partition_array(arr, chunk_size):
+    return [arr[i:i + chunk_size] for i in range(0, len(arr)-1, chunk_size)]
+```
+
+```
+# Once again, we iterate through each pH simulation
+for pH in pH_values:
+    # Load the dataframe
+    col = pd.read_csv('COLVAR_REWEIGHT_'+str(pH), sep=" ", header=None, skiprows=range(0,3),usecols=[1,2,3,4],names=["time", "chi", "puck.Zx", "metad.bias"])
+    # Discard non-equilibrated segments and define data sets
+    chi    = np.array(col['chi'].loc[col['time']>10000])
+    bias   = np.array(col['metad.bias'].loc[col['time']>10000])
+    maxim  = np.max(bias) #
+    weight = np.array(np.exp((bias)/KbT))
+
+    # Define the number of blocks for the converged segment
+    bnumber = 5
+    # Define the block size
+    bsize   = int(len(chi)/bnumber)
+    # Use the function to partition each data set.
+    bl_chi     = partition_array(chi,bsize)
+    bl_weight  = partition_array(weight,bsize)
+     
+    # Define the parameters for bootstrap
+    samples_chi = []
+    nsamples    = 1000
+    nbins       = 100
+    
+    # Iterate through the number of samples
+    for j in range(nsamples):
+        #Generate a list of n blocks to generate subsamples
+        n = len(bl_chi)   
+        blocks = np.random.choice(n,n,replace=True)
+        iter_chi     = []
+        iter_weight  = []
+        # Generate the nem sub sample with the randomized blocks
+        for i in blocks:
+            iter_chi.append(bl_chi[i])
+            iter_weight.append(bl_weight[i])
+        # Generate a reweighted histogram with the new data and weights
+        hist_chi, bin_edges   = np.histogram(iter_chi,bins=nbins,weights=iter_weight,density=False)
+        # Convert the reweighted histogram to a free energy surface
+        fes_chi   = np.array(-KbT*np.log(hist_chi))   
+        # Append the output to the list
+        samples_chi.append(fes_chi)
+    # After obtaining the outputs for all the new samples, estimate the std_deviation
+    std_chi    = np.std(samples_chi,axis=0)
+    
+    # Estimate the mean
+    mean_chi   = np.mean(samples_chi,axis=0)
+    
+    # Then plot the histogram with errors defined as the std_dev
+    bin_edges = np.histogram(chi,bins=nbins)[1]
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+    plt.errorbar(bin_centers,mean_chi,yerr=std_chi,label="pH"+str(pH))
+    x_tick = np.arange(-1,1.1,0.5)
+
+    x_label = [r"$-\pi$",r"$-\frac{\pi}{2}$", r"$0$", r"$+\frac{\pi}{2}$",r"$\pi$"]
+    plt.minorticks_on()
+    plt.xticks(x_tick*np.pi,x_label, fontsize=16)
+    plt.yticks(np.arange(-100,-40,10),fontsize=16)
+    plt.xlim(-np.pi,np.pi)
+    plt.ylim(-90,-40)
+    plt.ylabel("F($\chi$) / kJ.mol$^{-1}$",fontsize=16)
+    plt.xlabel("$\chi$ Angle$ / rad$ ",fontsize=16)
+    plt.legend(fontsize=12,loc="upper left")
+plt.tight_layout()
+plt.show()
+
+```
+### Q5. How does the new free energy plot compare to the one obtained through the PLUMED module? How big are the error estimates?
+
+### Q6. Attempt to reproduce the previous analyses for the Zx component of the sugar puckering. How does it compare to the $\chi$ angle? 
+
+So far, we have examined how an individual CV depends on the simulation pH and how the population balance of syn/anti and C2'/C3' endo change across the different simulations. Now, we want to compare the 2D free energy surface along all pH values and observe how the energy minima relate to each other.
+
+## Plotting 2D Free Energy Surface in function of the metadynamics CVs 
+
+First, we need to once again use the sum_hills module to read the HILLS file of each simulation and generate a file with the free energies at each grid point. The grid is defined by both CVs and, at each point, an energy value is assigned after the module sums all the Gaussians deposited during the simulation that are stored in the HILLS file. 
+
+```
+%%bash
+# For each pH value, we generate a fes.dat file
+for pH in 08.00 09.00 10.00
+do
+    # We define a grid of 100x100 and we read each pH simulation HILLS file
+    plumed sum_hills --bin 100,100 --hills data/HILLS_pH${pH}
+    mv fes.dat fes_pH${pH}.dat
+done
+
+```
+After generating each fes_pH.dat file, we can plot the data and it should look like the following plot:
+
+```
+for pH in pH_values:
+    # Load the data of each fes file.
+    X,Y,Z= np.loadtxt('fes_pH'+str(pH)+'.dat',unpack=True)[:][0:3]
+    Z-=np.min(Z)
+    print(X.shape,Y.shape,Z.shape)
+    temp_counter=0
+    total_line_counter=0
+    block_count_finished=False
+    
+    with open('fes_pH'+str(pH)+'.dat') as f:
+        for count,line in enumerate(f):
+            if line != "\n" and '#' not in line:
+                temp_counter+=1
+            if line == "\n" and block_count_finished==False:
+                block_line_counter=temp_counter
+                block_count_finished=True
+            if line != "\n" and '#' not in line:
+                total_line_counter+=1
+    print('lines total: ', total_line_counter)
+    print('X shape: ',block_line_counter)
+    print('Y shape: ', int(total_line_counter/block_line_counter))
+
+    shapeX=block_line_counter
+    shapeY=int(total_line_counter/block_line_counter)
+
+    X= np.reshape(X, (shapeY,shapeX))
+    Y= np.reshape(Y, (shapeY,shapeX))
+    Z= np.reshape(Z, (shapeY,shapeX))
+
+
+    plt.figure(figsize=(10,8))
+    levels=np.arange(0,30,3)
+    plt.contourf(X, Y, Z,levels,cmap='jet')
+    cbar = plt.colorbar(ticks=levels)
+    cbar.set_label(r'$\frac{kJ}{mol}$', rotation=0, labelpad=20,weight='bold',fontsize=20)
+    cs=plt.contour(X, Y, Z, levels, colors='black',linewidths=0.5)
+    cbar.ax.tick_params(labelsize=15) 
+    plt.ylim(-1, 1.0)
+    plt.xlim(-np.pi,np.pi)
+    plt.title('free energy surface',fontsize=15)
+
+
+    x_pi   = X*180/np.pi
+    x_tick = np.arange(-0.5,0.6,0.5)
+
+    x_label = [r"$-\frac{\pi}{2}$", r"$0$", r"$+\frac{\pi}{2}$"]
+    plt.title("pH "+str(pH))
+    plt.xticks(x_tick*np.pi,x_label, fontsize=15)
+    plt.yticks(fontsize=15)
+    plt.xlabel(r'$\chi$',fontsize=15)
+    plt.ylabel(r'$puck.Zx$',fontsize=15)
+    plt.hlines(0,-np.pi, np.max(X),linewidth=0.5,linestyle='dashed')
+    plt.vlines(0,-1, 1,linewidth=0.5,linestyle='dashed')
+    plt.tight_layout()
+    plt.show() 
+
+```
+### Q7. Do we identify differences in the energy minima and barriers across the different pH values? What can we say about the system?
+
+# Protonation Analysis
+
+Conformational analyses are fundamental in identifying energy minima, estimating populations of the chosen CVs and other observables, thus assessing how the system behaves at different pH values. Nevertheless, there is an another dimension to CpH-Metadynamics simulations which concerns the protonation analysis.
+
+When we consider how the system behaves at different pH conditions, we are evaluating how the protonation balance (i.e. the average protonation) of the titrable sites impact the conformational part. Therefore, it is important to consider how the protonation states change throughout the simulation or what is the average protonation of different energy minima. One important and distinctive property is the pKa. 
+
+The pKa is the pH at which 50%  of the population of a titrable site is protonated and the other 50% is deprotonated. Hence the pKa measures the proton binding affinity of a titrable site at a given pH value. Typically, if the solution pH < pKa, then the population of protonated states is more likely to be larger than the population of deprotonated states. If the pH > pKa, then the population of deprotonated states is likely to be larger than the population of protonated states. At pH=pKa, the protonation and deprotonation probability is equal, thus there is a thermodynamic equilibrium. 
+
+The pKa is typically associated with the Henderson-Hasselbalch equation, which describes the relationship between the pKa, pH and the balance between the protonated and deprotonated populations:
+
+$$ pH = pKa + log(\frac{[A-]}{[AH]}) $$
+
+Usually, changes in pKa are measured as pH units, however, they can be translated into kJ/mol. pH variations can be measured as a $\Delta\Delta$ G of the protonation-free energies at two distinct pH values. Since the protonation-free energy can be described as:
+
+$$ \Delta\text{G} = -ln10*RT*(pKa - pH) $$ 
+
+where R is the gas constant, T is the temperature in Kelvin. Then the energy associated with a pH unit change is:
+
+$$ \Delta\Delta\text{G} = -ln10*RT*(pH_f - pH_i) $$
+
+which for a $ \Delta pH=1$ is roughly:
+
+$$ \Delta\Delta\text{G} \approx -5.7 \text{kJ/mol at 298K} $$
+
+These energetic contributions can impact significantly thermodynamic equilibria, change conformational probabilities and balance between populations. Therefore, using these relationships, we will see how we are able to plot titration curves, estimate pKa values and measure energy differences using CpH-metaD simulations. 
+
+In the uridine system, the nucleobase has a pKa of 9.22 at the N3 atom. This means that at pH < pKa, most of the population should be protonated, hence in a neutral state. While for  pH >  pKa, most of the population should be deprotonated, hence in a negatively charged state. How do these charge variations impact our system? Can we measure changes in protonation at different pH values and along the simulation time? Is each energy minima distinguishable by their average protonation? If so, then why and how does electrostatics play a role?
+
+These are all questions to be addressed in the following section.
+
+## Extracting the protonation data
+
+We need to extract the protonation data stored in the .occ files. These files contain information of the proton occupation state of each titrable site along segments of the simulation. These files are generated after each cycle of CpHMD and the total number of lines matches the $ Time_{seg}/\tau_{p} $, which is the time of segment (1000 ps) over the frequency of protonation (20 ps). 
+
+Each column corresponds to a distinct titrable site and each row to different timestamps (typically every 20 ps). Then the occupation state is defined by the parametrized states found in the St-XOL3_DelPHi folder. For example, the uridine has two states: URN0 and URN1. URN0 refers to the neutral (0) state, hence the protonated state, while URN1 refers to the charged (-1) state, hence the deprotonated state. In the .occ file, if the occupation state is 0, then it means it is protonated. However, for the adenine, the AR0 also refers to the neutral state, however in this case it is the deprotonated state, and AR1 is the protonated (+1) state. Hence in this specific case, the protonation and occupation states match and we don't need to correct.
+Typically, binary protonable sites  do not need to be corrected, as for the adenine and cytidine, while deprotonable sites (uridine and guanine) require this conversion to obtain the protonation states. Sites with multiple tautomers always need a correction since in those cases, each occupation state refers to a different position of the proton.
+
+First, we are going to generate a data frame to store all the data found in the .occ files for the different pH values.
+
+```
+# First we create a pandas dataframe for time and protonation states
+protdf    = pd.DataFrame(columns=['Time','Protonation'])
+# We define the number of segments of our simulation
+segs      = range(0,11)
+prots     = {}
+pH_values = ['08.00','09.00','10.00']
+# We define the frequency of protonation as in the CpHMD settings (20ps)
+taup      = 20
+
+# Create a dictionary for the data
+prots = {"pH":[],"Time":[],"Protonation":[]}
+
+# We iterate through each pH
+for pH in pH_values:
+    # Then for each segment
+    for seg in segs:
+        # We obtain the time range of each segment
+        time = seg*10000-10000
+        # Get the occ files from the data folder
+        path = "data/occ_pH"+str(pH)+str("/")
+        itemList =  os.listdir(path)
+        # Iterate through each .occ file to obtain the protonation states
+        for file in itemList:
+            if ".occ" in file and seg == float(file[-7:-4]):
+                with open(path+file) as f:
+                    for line in f:
+                        # Save the time, pH and protonation state
+                        prots["Time"].append(int(time))
+                        prots["pH"].append(pH)
+                        prots["Protonation"].append(float(line.strip()))
+                        time += taup
+    
+protdf = pd.DataFrame.from_dict(prots,orient='columns')
+protdf.reset_index(inplace=True)
+print(protdf)
+
+```
+
+After extracting all the data and assigning the proper timestamps, we can define the frequency of protonation. While we only calculate the protonation information every 20~ps, in reality, we can propagate the stored protonation states to the intermediate frames within each protonation calculation. If the simulation timestep is 2 ps and the $\tau_{p}$ is 20 ps, then the protonation states of these intermediate frames correspond to the state assigned in the previous cycle. 
+
+```
+dfs  = []
+# Define the frequency of protonation
+taup = 20
+# Define the timestep of the simulation
+taus = 2
+
+for pH in pH_values:
+    # Get last time for each pH series based on occ
+    pH_time = protdf['Time'].loc[protdf["pH"]==pH].max()
+    # Expand the fixed protonation to frames every 2 ps (simulation)
+    tmp = pd.DataFrame(protdf.loc[protdf["pH"]==pH])
+    new_pH_time = pd.Series(range(0, pH_time + taup, taus), name='Time').to_frame()
+    # Merge and propagate the protonation based on both dataframes
+    final_protdf = pd.merge_asof(new_pH_time, tmp, on=["Time"])#,direction='forward')
+    dfs.append(final_protdf)
+
+# Concatenated dataframe of all pH data   
+final_protdf = pd.concat(dfs)
+# Examine the dataframe
+print(final_protdf)
+
+```
+
+Since we are performing CpH-Metadynamics simulations, we require the weight data from the accumulated bias in the simulation. Protonation and conformation are intrinsically coupled, then biased conformations dictate that their protonation states should also be unbiased. To do that we need to obtain the weights and correctly assign them to the corresponding frames. 
+
+```
+# Define a list for the weighted dataframes
+wprot = []
+
+# Iterate through each pH value
+for pH in pH_values:
+    # Load the data of COLVAR
+    col = pd.read_csv('COLVAR_REWEIGHT_'+str(pH), sep=" ", header=None, skiprows=range(0,3),usecols=[1,2,3,4],names=["Time",'chi','puck.Zx', "metad.bias"])
+    # Define the maximum bias for a better numerical approximation
+    maxim=np.max(col['metad.bias']) 
+    # Calculate the weights
+    weights=np.exp((col['metad.bias']-maxim)/KbT)
+    # Normalize the weights
+    weights=weights/np.sum(weights)
+    # Define a new column in the dataframe
+    col['Weight']=weights
+    # Correct the time column
+    time = np.array(col['Time']*2)
+    col['Time'] = time
+    # Merge the two dataframes (protonation and COLVAR)
+    pdf1 = pd.merge(final_protdf.loc[final_protdf['pH']==pH], col[['Time','chi','puck.Zx','Weight']],left_on="Time",right_on="Time",how="left")
+    # Append each pH dataframe to the list    
+    wprot.append(pdf1)
+
+# Create dataframe with Weights
+rewprot = pd.DataFrame(columns=['pH','Time','Protonation', 'Weight'])
+# Concatenate all pH dataframes into a single on
+rewprot = pd.concat(wprot)
+rewprot.drop('index',axis=1)
+# If there are any rows with nan values due to mismatch when sims are not complete. This should be commented if the simulation ended
+# To check for possible mismatch errors
+rewprot=rewprot.dropna()
+
+```
+
+### Q8. Examine the final dataframe. Do the timestamps of the protonation states match the conformational data? Are all the pH values present?
+
+After obtaining the final dataframe with all the pH values, protonation and conformation data and the weights, we can calculate average protonations, derive a titration curve and estimate the pKa. To plot a titration curve, we need to redefine the Henderson-Hasselbalch (HH) relationship between pH, pKa and protonation. We can rewrite the HH function as follows:
+
+$$ <P> = \frac{1}{1+10^{pH-pKa}} $$
+
+where <P> is the average protonation at a certain pH value, pH is the assigned value of the simulation and the pKa is the fitted parameter. However, we are dealing with biased simulations, then we need to calculate the weighted average protonations:
+
+$$ <P^*> = \frac{\sum_i P_i \times e^{\frac{B_i}{kBT}}}{\sum_i e^{\frac{B_i}{kBT}}} $$
+
+where <P*> is the weighted average protonation, B_i is the accumulated bias accumulated at the end of the metadynamics simulations calculated on the coordinates corresponding to the i-th frame. Knowing this relationship and how to get the weighted protonation averages, we can fit the simulation data to the HH function and obtain a pKa estimate.
+
+```
+## Calculate average protonation for each pH value
+data = []
+x = []
+y = []
+w = []
+
+for pH in pH_values:
+    # We discard the equilibration time obtained previously
+    equil  = 00000
+    tlimit = 100000
+    # Load the dataframe with all the data
+    vals   = pd.DataFrame(rewprot[['pH','Protonation','Weight']].loc[(rewprot["pH"]==pH) & (rewprot["Time"] >= equil)& (rewprot["Time"] < tlimit)])
+    weights = vals["Weight"]
+    weights = weights/np.sum(weights)
+    # Convert the occs into prot states
+    occs   = vals["Protonation"] 
+    # Remember that for uridine and guanine, the 0 state is the neutral/protonated state.
+    prots  = 1-np.array(occs)
+    
+    # Obtain the weighted average using the normalized weights
+    avx = np.sum(prots*weights)
+    data.append((pH,avx))
+    print(pH,avx,np.sum(prots)/len(prots))
+
+```
+
+### Q9. What can we determine from the average protonations? Do they follow an expected trend?
+
+After obtaining the reweighted data, now we can use the HH relationship to plot a titration curve and determine the uridine pKa. 
+
+```
+# Define a tolerance for the upper and lower limtis of average protonation
+# Average protonations too close to the upper (1) and lower (0) bounds should not be used
+tol = 0.01  
+for val in data:
+    if val[1] > tol and val[1] < 1-tol:
+        x.append(float(val[0]))
+        y.append(val[1])
+
+# Define arrays for the pH, protonation and weight data               
+x = np.array(x)
+y = np.array(y)
+
+# Obtain an initial guess of the pH closer to the pKa     
+minndx = 0
+for i in range(len(y)):
+    if abs(0.5-y[1]) < abs(0.5-y[minndx]):
+        minndx = i
+# This guess will be used as a reference for the HH function            
+pKainit = x[minndx]
+    
+def Hill(x, pKa, n):
+    return 1.0 / (1.0 + 10.0**(n*(x - pKa)))
+def HH(x, pKa):
+    return 1.0 / (1.0 + 10.0**(x - pKa))
+    
+params = curve_fit(HH,x,y,p0=[pKainit])
+    
+x_new = np.linspace(-5,14,1000)
+y_new = HH(x_new,params[0][0])
+print('## {:5.2f}'.format(params[0][0]))
+pKa_fit = '{:5.2f}'.format(params[0][0])
+
+
+plt.tight_layout()
+plt.xlabel("pH")
+plt.ylabel("Protonation")
+plt.xlim(6.0,11.2)
+plt.plot(float(pKa_fit),0.5,"ro")
+plt.plot(x,y,"ko")
+plt.annotate(pKa_fit,(float(pKa_fit),0.5))
+plt.plot(x_new,y_new)
+
+```
+
+Although the final pKa result is slightly underestimated by our simulations, as the experimental pKa is 9.22, the simulations were done on our approach that aims to reflect pKas in an RNA construct and not the single nucleoside. As such, this result is expected. However, one should take notice of the analysis steps required to achieve the result.
+
+Additionally, using the previous rationale, we can apply a bootstrap approach to determine some statistics on the protonation data. For instance, we evaluate the confidence in our estimates by estimating the standard error and plotting histograms of the subsamples. First, we run the function that partitions the data into blocks and generates the new samples.
+
+```
+def bt_avgprots(data,weights,nblocks,nsamples):
+    data_blocks    = np.split(data,nblocks)
+    weights_blocks = np.split(weights,nblocks)
+    bt_samples     = []
+    #
+    for i in range(nsamples):
+        new_data   = []
+        new_weight = []
+        blocks = np.random.choice(nblocks, nblocks, replace=True)
+        for j in blocks:
+            new_data.append(data_blocks[j])
+            new_weight.append(weights_blocks[j])
+        prot_tmp = np.average(np.array(new_data),weights=np.array(new_weight))
+        bt_samples.append(prot_tmp)
+    
+    return bt_samples
+
+```
+
