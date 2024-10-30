@@ -1,0 +1,23 @@
+    
+# Activate MOLINFO functionalities
+    MOLINFO STRUCTURE=data/U1mer.pdb
+    chi:  TORSION ATOMS=8,9,19,28
+    puck: PUCKERING ATOMS=6,8,9,13,11
+        
+    # Activate well-tempered metadynamics in Chi and Zx
+    metad: METAD ARG=chi,puck.Zx PACE=100000000 HEIGHT=0.0 BIASFACTOR=4 SIGMA=0.35,0.35 FILE=data/HILLS_pH08.00 GRID_MIN=-pi,-pi GRID_MAX=pi,pi RESTART=YES # <- this is the new stuff! 
+    
+    as: REWEIGHT_BIAS ARG=metad.bias
+
+    hhchi:  HISTOGRAM ARG=chi STRIDE=1 GRID_MIN=-pi GRID_MAX=pi GRID_BIN=100 BANDWIDTH=0.1 LOGWEIGHTS=as 
+    hhpuck: HISTOGRAM ARG=puck.Zx STRIDE=1 GRID_MIN=-pi GRID_MAX=pi GRID_BIN=100 BANDWIDTH=0.1 LOGWEIGHTS=as 
+
+    # Convert histograms h(s) to free energies F(s) = -kBT * log(h(s))
+    ffchi: CONVERT_TO_FES GRID=hhchi 
+    ffpuck: CONVERT_TO_FES GRID=hhpuck 
+    # Print out the free energies F(s) to file once the entire trajectory is processed
+    DUMPGRID GRID=ffchi FILE=ffchi_08.00_tot.dat 
+    DUMPGRID GRID=ffpuck FILE=ffpuck_08.00_tot.dat 
+
+# Make sure you print out the 3 variables in the specified order at every step
+PRINT ARG=chi,puck.Zx,metad.bias FILE=TOTVAR_REWEIGHT_08.00 STRIDE=1 # <- also change this one! 

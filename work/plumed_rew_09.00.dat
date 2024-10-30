@@ -1,0 +1,30 @@
+    
+    # Provide molecular information given the system pdb
+    MOLINFO STRUCTURE=data/U1mer.pdb
+    # Define the atoms for the chi torsion angle CV
+    chi:  TORSION ATOMS=8,9,19,28
+    # Define the atoms for the sugar puckering CV
+    puck: PUCKERING ATOMS=6,8,9,13,11
+        
+    # Activate well-tempered metadynamics module using the defined CVs. For the sugar puckering, we want specifically the Zx vector.
+    # The PACE is defined to a very large number and the Height to 0.0 kJ/mol because we do not want to add new gaussians.
+    # The RESTART=YES to restart the metadynamics, hence read the added Gaussians from the provided HILLS file.
+    # The bias factor, GRID boundaries are equal to the ones provided in the simulation.
+    metad: METAD ARG=chi,puck.Zx PACE=100000000 HEIGHT=0.0 BIASFACTOR=8 SIGMA=0.35,0.35 FILE=data/HILLS_pH09.00 GRID_MIN=-pi,-pi GRID_MAX=pi,pi RESTART=YES # <- this is the new stuff! 
+    
+    # Using the REWEIGHT_BIAS, we provided the metad.bias as an argument to obtain the weights.
+    as: REWEIGHT_BIAS ARG=metad.bias
+
+    # Unbiased histograms for the observables are obtained by providing the logweights previously defined.
+    hhchi:  HISTOGRAM ARG=chi STRIDE=1 GRID_MIN=-pi GRID_MAX=pi GRID_BIN=100 BANDWIDTH=0.1 LOGWEIGHTS=as 
+    hhpuck: HISTOGRAM ARG=puck.Zx STRIDE=1 GRID_MIN=-pi GRID_MAX=pi GRID_BIN=100 BANDWIDTH=0.1 LOGWEIGHTS=as 
+    # Then we can convert the histograms h(s) to free energies F(s) = -kBT * log(h(s))
+    # by using the CONVERT_TO_FES module and then dump the free energies.
+    ffchi: CONVERT_TO_FES GRID=hhchi 
+    ffpuck: CONVERT_TO_FES GRID=hhpuck 
+    # Print out the free energies F(s) 
+    DUMPGRID GRID=ffchi FILE=ffchi_09.00.dat 
+    DUMPGRID GRID=ffpuck FILE=ffpuck_09.00.dat 
+
+# Print to a COLVAR file the chi angle, the Zx component of the sugar puckering and the metad.bias
+PRINT ARG=chi,puck.Zx,metad.bias FILE=COLVAR_REWEIGHT_09.00 STRIDE=1 
