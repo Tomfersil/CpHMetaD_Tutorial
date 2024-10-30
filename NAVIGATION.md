@@ -3,8 +3,8 @@ flowchart LR
 A[Metadynamics Intro] ==> B[CpH-Metadynamics intro]
 B ==> C[CpH-MetaD source]
 B ==> D[Conformational Analysis]
-E ==> E[Protonation Analysis]
-D ==> F[Solution]
+D ==> E[Protonation Analysis]
+E ==> F[Solution]
 
 click A "ref1" "A brief introduction to metadynamics is useful before executing this tutorial"
 click B "README.md" "A theoretical introduction to the CpH-Metadynamics method"
