@@ -1,4 +1,4 @@
-# CpHMetaD_Tutorial
+# An introduction to CpH-Metadynamics simulations
 
 ## Aim
 
