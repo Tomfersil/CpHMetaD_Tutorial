@@ -144,7 +144,7 @@ for pH in pH_values:
 plt.show()
 #ENDHIDDEN
 ```
-![alt text](images/figure1.png)
+<img src="images/figure1.png" alt="Free energy in function of the $\chi$ angle CV." width="300"/>
 
 ### Q2. Calculate the By observing the plot and examining the populations' values, what can we learn from the pH dependence of this system?
 
@@ -163,7 +163,7 @@ plt.show()
 
 ```
 
-![alt text](images/figure2.png)
+<img src="images/figure2.png" alt="CV time series." width="300"/>
 
 ### Q3. Are there enough transitions across the full range to state that we are sampling this specific CV space?
 
@@ -220,7 +220,7 @@ for pH in pH_values:
     plt.show()
 
 ```
-![alt text](images/figure3.png)
+<img src="images/figure3.png" alt="Free energy difference between two energy minima along simulation time." width="300"/>
 
 ### Q4. Did the free energy difference converge quickly and how much should we discard of our trajectory?
 
@@ -300,7 +300,7 @@ plt.tight_layout()
 plt.show()
 
 ```
-![alt text](images/figure4.png)
+<img src="images/figure4.png" alt="Free energy in function of $\chi$ angle with errors." width="300"/>
 
 ### Q5. How does the new free energy plot compare to the one obtained through the PLUMED module? How big are the error estimates?
 
