@@ -8,7 +8,7 @@ In this tutorial, we will briefly look into different analyses that can be perfo
 In the conformational analysis, we will evaluate the convergence of chosen Collective Variables (CV's), characterize the CV space and estimate errors. In the protonation analysis, we will estimate average protonations of the titrable site at each pH value, estimate pKas using the Henderson-Hasselbalch equation and calculate errors, while using the metadynamics weights. Furthermore, we will compute the same properties using a WHAM procedure to reweight to obtain smoother and more accurate descriptions of several observables.
 
 ## Loading Packages
-
+``` python
 import sys
 import numpy as np
 import scipy
@@ -17,7 +17,7 @@ import plumed
 import math
 import pandas as pd
 import matplotlib.pyplot as plt
-
+```
 # Conformational Analysis
 
 ## Extraction of trajectories and protonation state data
@@ -33,7 +33,7 @@ Here we use the PLUMED tool to obtain reweighted data on the desired observables
 
 Biased simulations were performed at 3 distinct pH values: 8.0, 9.0 and 10.0. Since the pKa of uridine is 9.22, then each simulation should exhibit differences in their observables if they are protonation-dependent. And that is what we are going to assess. For that purpose, we need to unbias our simulations and obtain either the weights or the unbiased observables. First, we need to extract the reweighted observables using the HILLS file for each simulation of our system. To do that we need to run the PLUMED driver module on the concatenated trajectory using a modified version of our PLUMED.dat input file. Examine the following cell that generates the PLUMED_rew.dat file. 
 
-```
+``` bash
 %%bash
     # Define system name
     sys=U1mer
@@ -86,7 +86,7 @@ In the following cells, we will examine how the pH impacts the CVs of our system
 
 ### Q1. Does increasing the pH, thus the number of deprotonation events, impact the thermodynamic balance between these distinct conformations? 
 
-```
+``` python
 KbT = 2.5
 pH_values = ['08.00','09.00','10.00']
 for pH in pH_values:
@@ -150,7 +150,7 @@ plt.show()
 
 Wt-metadynamics simulations depend on providing enough transitions across the defined range of the CV space to obtain sufficient sampling and a good description of the desired observables. As such, we need to examine if the number of transitions across the full CV range and if there is enough sampling in the transition regions which are typically of high energy. 
 
-```
+``` python
 for pH in pH_values:
     # Load the data from the COLVAR file
     Chi     = np.loadtxt("COLVAR_REWEIGHT_"+str(pH))
@@ -171,7 +171,7 @@ Another important property to evaluate is the convergence of the free energy dif
 
 To obtain the convergence, we need to compute the free energy along each CV value using the sum_hills module every N steps of the simulation.
 
-```
+``` python
 for pH in ["08.00", "09.00", "10.00"]:
     !plumed sum_hills --hills data/HILLS_pH${pH} --stride 1000 --idw "chi" --kt 2.5 --outfile ff.chi_pH${pH}_
 
@@ -181,7 +181,7 @@ The sum_hills module is used to sum the Gaussians stored in the HILLS file by us
 
 Then, by iterating through each pH value, we can extract the data of each file and compute the free energy difference of the minima defined by the syn/anti criterion used previously.
 
-```
+``` python
 # Calculate free energy difference between syn and anti minima.
 
 # Since we defined stride=1000 in sum_hills, the tau is equivalent to 10 (1ns).
@@ -228,13 +228,13 @@ After assessing the convergence of our simulation and defining how much should w
 
 First, we are going to reproduce the plot of the free energy as a function of the $\chi$ angle with the standard errors.
 
-```
+``` python
 # First, we define a function to partition the trajectory into blocks
 def partition_array(arr, chunk_size):
     return [arr[i:i + chunk_size] for i in range(0, len(arr)-1, chunk_size)]
 ```
 
-```
+``` python
 # Once again, we iterate through each pH simulation
 for pH in pH_values:
     # Load the dataframe
@@ -312,7 +312,7 @@ So far, we have examined how an individual CV depends on the simulation pH and h
 
 First, we need to once again use the sum_hills module to read the HILLS file of each simulation and generate a file with the free energies at each grid point. The grid is defined by both CVs and, at each point, an energy value is assigned after the module sums all the Gaussians deposited during the simulation that are stored in the HILLS file. 
 
-```
+``` bash
 %%bash
 # For each pH value, we generate a fes.dat file
 for pH in 08.00 09.00 10.00
@@ -325,7 +325,7 @@ done
 ```
 After generating each fes_pH.dat file, we can plot the data and it should look like the following plot:
 
-```
+``` python
 for pH in pH_values:
     # Load the data of each fes file.
     X,Y,Z= np.loadtxt('fes_pH'+str(pH)+'.dat',unpack=True)[:][0:3]
