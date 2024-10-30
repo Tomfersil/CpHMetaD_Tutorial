@@ -144,7 +144,7 @@ for pH in pH_values:
 plt.show()
 #ENDHIDDEN
 ```
-<img src="images/figure1.png" alt="Free energy in function of the $\chi$ angle CV." width="300"/>
+<img src="images/figure1.png" alt="Free energy in function of the $\chi$ angle CV." width="450"/>
 
 ### Q2. Calculate the By observing the plot and examining the populations' values, what can we learn from the pH dependence of this system?
 
@@ -163,7 +163,7 @@ plt.show()
 
 ```
 
-<img src="images/figure2.png" alt="CV time series." width="300"/>
+<img src="images/figure2.png" alt="CV time series." width="450"/>
 
 ### Q3. Are there enough transitions across the full range to state that we are sampling this specific CV space?
 
@@ -220,7 +220,7 @@ for pH in pH_values:
     plt.show()
 
 ```
-<img src="images/figure3.png" alt="Free energy difference between two energy minima along simulation time." width="300"/>
+<img src="images/figure3.png" alt="Free energy difference between two energy minima along simulation time." width="450"/>
 
 ### Q4. Did the free energy difference converge quickly and how much should we discard of our trajectory?
 
@@ -300,7 +300,7 @@ plt.tight_layout()
 plt.show()
 
 ```
-<img src="images/figure4.png" alt="Free energy in function of $\chi$ angle with errors." width="300"/>
+<img src="images/figure4.png" alt="Free energy in function of $\chi$ angle with errors." width="450"/>
 
 ### Q5. How does the new free energy plot compare to the one obtained through the PLUMED module? How big are the error estimates?
 
@@ -383,9 +383,9 @@ for pH in pH_values:
     plt.show() 
 
 ```
-<img src="images/figure5.png" alt="Description of image" width="300"/>
-<img src="images/figure6.png" alt="Description of image" width="300"/>
-<img src="images/figure7.png" alt="Description of image" width="300"/>
+<img src="images/figure5.png" alt="Description of image" width="450"/>
+<img src="images/figure6.png" alt="Description of image" width="450"/>
+<img src="images/figure7.png" alt="Description of image" width="450"/>
 
 
 ### Q7. Do we identify differences in the energy minima and barriers across the different pH values? What can we say about the system?
