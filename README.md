@@ -276,6 +276,7 @@ for pH in pH_values:
 plt.show()
 #ENDHIDDEN
 ```
+![alt text](images/figure1.png)
 
 ### Q2. Calculate the By observing the plot and examining the populations' values, what can we learn from the pH dependence of this system?
 
