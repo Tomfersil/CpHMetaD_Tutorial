@@ -406,12 +406,12 @@ def compute_weights(N,pH,w):
 ```
 
 ## Extracting the trajectory:
-The next step is to obtain the concatenated trajectories. In the data folder, there is a script ($\textbf{get\_concat\_traj.sh}$) to be run locally. Examine the script and run it to obtain the concatenated trajectories.
+The next step is to obtain the concatenated trajectories. In the data folder, there is a script (get_concat_traj.sh) to be run locally. Examine the script and run it to obtain the concatenated trajectories.
 
 ## Recomputing the bias:
-After obtaining the concatenated trajectory, please examine the ($\textbf{run\_colvar\_wham.sh}$) to obtain the recomputed biases for the concatenated trajectory using each pH HILLS file. 
+After obtaining the concatenated trajectory, please examine the (run_colvar_wham.sh) to obtain the recomputed biases for the concatenated trajectory using each pH HILLS file. 
 
-### Q11. Examine the TOTVAR_REWEIGHT_pH output of each run. Compare them between each other. How do they differ from one another?
+### Q11. Examine the TOTVAR_REWEIGHT_pH output of each run. Compare them with each other. How do they differ from one another?
 
 ### Q12. Compare each output to the COLVAR files of the individual trajectories for the same pH values. Are they similar in any way?
 
