@@ -40,9 +40,7 @@ The [st-CpHMD method](https://doi.org/10.1063/1.1497164) and other CpHMD methods
 - a solvent relaxation step ;
 - a MD production step ;
 
-in the PB/MC, protonation free energies are calculated in a single conformation to determine the likelihood of the different protonation states of a titrable site, which are then sampled through a MC procedure until it satisfies a criterion. Upon reassigning the protonation state, a short MD is run with restraints on the solute to allow the solvent to readjust to the new charges. Finally, there is the production MD step, typically 20 ps, which samples the conformational space. After this step, we reinitiate the cycle for how many times are necessary until we reach the desired simulation length. A deeper dive on how we can extract energies from protonation-dependent properties will be addressed on the analysis segment.
-
-This method effectively couples discrete protonation states and conformational sampling, thus allowing a more rich description of a biological system.
+in the PB/MC, protonation free energies are calculated in a single conformation to determine the likelihood of the different protonation states of a titrable site, which are then sampled through a MC procedure until it satisfies a criterion. Upon reassigning the protonation state, a short MD is run with restraints on the solute to allow the solvent to readjust to the new charges. Finally, there is the production MD step, typically 20 ps, which samples the conformational space. After this step, we reinitiate the cycle for how many times are necessary until we reach the desired simulation length. A deeper dive on how we can extract energies from protonation-dependent properties will be addressed on the analysis segment.This method effectively couples discrete protonation states and conformational sampling, thus allowing a more rich description of a biological system.
 
 ### Metadynamics integration:
 
@@ -129,3 +127,153 @@ Simulation information data:
 - .log.gz: log file of the simulation ;
 - .err.gz: other data concerning GROMACS, PB and MC log information; 
 - .info: these files store general information of the cycles performed in each segment;
+
+
+
+# Analyzing CpH-Metadynamics simulations
+
+In this tutorial, we will briefly look into different analyses that can be performed using CpH-MetaD. These analysis will be comprised of two parts:
+
+- Conformational analysis
+- Protonation analysis
+
+In the conformational analysis, we will evaluate the convergence of chosen Collective Variables (CV's), characterize the CV space and estimate errors. In the protonation analysis, we will estimate average protonations of the titrable site at each pH value, estimate pKas using the Henderson-Hasselbalch equation and calculate errors, while using the metadynamics weights. Furthermore, we will compute the same properties using a WHAM procedure to reweight to obtain smoother and more accurate descriptions of several observables.
+
+## Loading Packages
+
+import sys
+import numpy as np
+import scipy
+from scipy.optimize import curve_fit
+import plumed
+import math
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Conformational Analysis
+
+## Extraction of trajectories and protonation state data
+
+All trajectories and protonation states were extracted locally using the scripts in the data folder. Take notice of them and examine how to extract the information.
+
+## Calculating populations and the free energy in function of the CVs 
+
+Here we use the PLUMED tool to obtain reweighted data on the desired observables, i.e. the chosen CV's: 
+- the $\chi$ angle of titrable site : this important property of nucleobases characterizes the relative orientation of the base/sugar. It is defined by the O4'-C1'-N1'-C2 (C,U) or O4'-C1'-N9-C4 (A,G). When the angle is between 0 and 2 radians (-90º to 90º) it is in syn and the base is oriented towards the sugar, while from -pi to 0 and 2 to pi the angle is in anti. This base-flipping is a slow internal degree of freedom therefore a good candidate for a CV. It is also useful to validate our force field against experimental data;
+
+- the sugar puckering: another slow yet important property that refers to the conformation of the ribose. It is defined by the C2' and C3' atoms' relative positions to the plane defined by the C1', O4' and C4' atoms. The C2' endo is defined by the C2' atom above the plane and similarly the C3' endo for the C3' atom. The positioning defines the proximity of the 2'-OH group to the base and also the helix type. These calculations were done locally. 
+
+Biased simulations were performed at 3 distinct pH values: 8.0, 9.0 and 10.0. Since the pKa of uridine is 9.22, then each simulation should exhibit differences in their observables if they are protonation-dependent. And that is what we are going to assess. For that purpose, we need to unbias our simulations and obtain either the weights or the unbiased observables. First, we need to extract the reweighted observables using the HILLS file for each simulation of our system. To do that we need to run the PLUMED driver module on the concatenated trajectory using a modified version of our PLUMED.dat input file. Examine the following cell that generates the PLUMED_rew.dat file. 
+
+```
+%%bash
+    # Define system name
+    sys=U1mer
+    # Iterate through each simulation pH
+    for pH in 09.00 09.25 09.50
+    do
+    #Generate a new PLUMED file for each pH
+    cat > plumed_rew_${pH}.dat << EOF
+    
+    # Provide molecular information given the system pdb
+    MOLINFO STRUCTURE=data/${sys}.pdb
+    # Define the atoms for the chi torsion angle CV
+    chi:  TORSION ATOMS=8,9,19,28
+    # Define the atoms for the sugar puckering CV
+    puck: PUCKERING ATOMS=6,8,9,13,11
+        
+    # Activate well-tempered metadynamics module using the defined CVs. For the sugar puckering, we want specifically the Zx vector.
+    # The PACE is defined to a very large number and the Height to 0.0 kJ/mol because we do not want to add new gaussians.
+    # The RESTART=YES to restart the metadynamics, hence read the added Gaussians from the provided HILLS file.
+    # The bias factor, GRID boundaries are equal to the ones provided in the simulation.
+    metad: METAD ARG=chi,puck.Zx PACE=100000000 HEIGHT=0.0 BIASFACTOR=8 SIGMA=0.35,0.35 FILE=data/HILLS_pH${pH} GRID_MIN=-pi,-pi GRID_MAX=pi,pi RESTART=YES # <- this is the new stuff! 
+    
+    # Using the REWEIGHT_BIAS, we provided the metad.bias as an argument to obtain the weights.
+    as: REWEIGHT_BIAS ARG=metad.bias
+
+    # Unbiased histograms for the observables are obtained by providing the logweights previously defined.
+    hhchi:  HISTOGRAM ARG=chi STRIDE=1 GRID_MIN=-pi GRID_MAX=pi GRID_BIN=100 BANDWIDTH=0.1 LOGWEIGHTS=as 
+    hhpuck: HISTOGRAM ARG=puck.Zx STRIDE=1 GRID_MIN=-pi GRID_MAX=pi GRID_BIN=100 BANDWIDTH=0.1 LOGWEIGHTS=as 
+    # Then we can convert the histograms h(s) to free energies F(s) = -kBT * log(h(s))
+    # by using the CONVERT_TO_FES module and then dump the free energies.
+    ffchi: CONVERT_TO_FES GRID=hhchi 
+    ffpuck: CONVERT_TO_FES GRID=hhpuck 
+    # Print out the free energies F(s) 
+    DUMPGRID GRID=ffchi FILE=ffchi_${pH}.dat 
+    DUMPGRID GRID=ffpuck FILE=ffpuck_${pH}.dat 
+
+# Print to a COLVAR file the chi angle, the Zx component of the sugar puckering and the metad.bias
+PRINT ARG=chi,puck.Zx,metad.bias FILE=COLVAR_REWEIGHT_${pH} STRIDE=1 
+EOF
+
+# Then we run the plumed driver tool using the following command for each pH simulation. We also define the value of KBT in energy units.
+plumed driver --mf_xtc data/${sys}_pH${pH}.xtc --plumed plumed_rew_${pH}.dat --kt 2.5
+done
+
+```
+
+From the previous cell, we were able to obtain the weighted histograms, the unweighted properties and the bias used along the frames of the simulation. At this moment, we can extract the information from the COLVAR files and compute the weights w of each frame using w = exp(V/kBT) and then applying each w to each value of the observable. As such, we can obtain weighted averages, free-energy differences between the energy minima and plot the free energy along the chosen observable. 
+
+In the following cells, we will examine how the pH impacts the CVs of our system by comparing the populations of the syn/anti and the C2'/C3' endo conformations and their free energy differences. 
+
+### Q1. Does increasing the pH, thus the number of deprotonation events, impact the thermodynamic balance between these distinct conformations? 
+
+```
+KbT = 2.5
+pH_values = ['08.00','09.00','10.00']
+for pH in pH_values:
+    
+    # Load the FES file and the COLVAR file.
+    ffChi   = np.loadtxt("ffchi_"+str(pH)+".dat")
+    Chi     = np.loadtxt("COLVAR_REWEIGHT_"+str(pH))
+    
+    # Extract the information into distinct columns: Time, Chi, Puck, metad.bias
+    col = pd.read_csv('COLVAR_REWEIGHT_'+str(pH), sep=" ", header=None, skiprows=range(0,3),usecols=[1,2,3,4],names=["Time", "Chi", "Puck", "metad.bias"])
+    # Define the maximum value of the bias. This will provide a better numerical approximation.
+    maxim=np.max(col['metad.bias']) 
+    # Define the weight for each frame as defined by w=exp(V(s)/kBT).
+    weights=np.exp((col['metad.bias']-maxim)/KbT)
+    # Then normalize the weights
+    weights=weights/np.sum(weights)
+    # Add a new columnd with the weights to our dataframe.
+    col['weight']=weights
+
+    sweights = []
+    aweights = []
+
+    # Split the weight between syn (0<= syn <=2) and anti according to the Chi values.
+    for index in range(0,len(col)):
+        cval = col['Chi'][index]
+        wval = col['weight'][index]
+        if 0 <= float(cval) <= 2:            
+            sweights.append(wval)
+        else:
+            aweights.append(wval)
+    
+    # Then we each population average as the sum the normalized weights
+    smean  = np.sum(sweights)
+    amean = np.sum(aweights)
+    # Through the relation of Fi = - KbT ln(1/N Sum(x)), we know the free energy of a minimum
+    # Then the free energy difference can be given by deltaF_{x-y} = - KbT ln(meanX/meanY) 
+    # Since the difference of the logs is equal to the log of the quotient, we assume KbT = 1 in this case
+    fed = -np.log(smean/amean)*KbT
+
+    # Then we can print the free energy difference between the two populations and their average value for chosen property (Chi angle)
+    #### Exercise: Try to print the population values of both states at the different pH values:
+    #HIDDEN
+    print("The free energy difference, at pH {}, (syn to anti) on the Chi angle CV is {:.3f} KJ/mol and the syn pop is {:.3f}".format(pH,fed,smean))
+    #ENDHIDDEN
+
+    #### Exercise: Try to plot the free energy in function of the $\chi$ angle CV  at the different pH values:
+    # We can also plot the data as degrees instead of radians by converting rad*180/pi
+#HIDDEN
+    plt.plot(ffChi[:,0]*180/np.pi,ffChi[:,1],label="pH"+str(pH),linewidth=2)
+    plt.title("Chi Angle")
+    plt.xlabel("Chi CV")
+    plt.ylabel("free energy [kJ/mol]")
+    plt.legend(ncol=1)
+plt.show()
+#ENDHIDDEN
+```
+
+### Q2. Calculate the By observing the plot and examining the populations' values, what can we learn from the pH dependence of this system?
