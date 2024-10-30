@@ -53,21 +53,21 @@ Effectively, certain degrees of freedom are more challenging to sample and can r
 Setting up a CpH-Metadynamics simulation requires defining parameters for two sections: the CpHMD section and the PLUMED input file. Previous knowledge on [metadynamics](https://www.plumed.org/doc-v2.9/user-doc/html/advanced-methods.html) and/or CpHMD simulations is helpful.
 Examine the CpHMD.settings file. For now, let's observe the main defining settings:
 
-```
+``` bash
 ###  Start of CpHMD settings (pHmdp) ###
 #
 ########################################
-export SysName="A5mer" # Name of our protein or system
-export Segments=100 # Number of MD/CpHMD Segments
+export SysName="U1mer" # Name of our protein or system
+export Segments=10 # Number of MD/CpHMD Segments
 export Seg_size=10 # Size of each Segment in nanoseconds
-export ffDIR="/leonardo/home/userexternal/tfernand/Constant_pH/CpHMD_MetaD/top/XOL3pH.ff"
+export ffDIR="CpHMD_MetaD/top/XOL3pH.ff"
 export ffID=XOL3pH #XOL3pH # Force fields: G54a7pH/CHARMM36pH  --> GROMOS 54a7/CHARMM 36m
 export plumed=grid # Static - static potential after metaD ; grid - run metaD using grids instead of running Hills; yes - standard metaD using Hills
 export water=opc # Water model used
-export pH=XX.XX # Solution pH
-export sites="9" # list of residues to titrate or "all" to titrate every residue
+export pH=09.00 # Solution pH
+export sites="2" # list of residues to titrate or "all" to titrate every residue
 export temp=300.0 # Temperature (Kelvin)
-export ionicstr=0.01 # Ionic Strength (moles/litre)
+export ionicstr=0.1 # Ionic Strength (moles/litre)
 
 ```
 
@@ -84,7 +84,7 @@ The sites entry is needed to define the titrable sites based on the residue numb
 Concerning the specific parameters for the metadynamics section, either check the end of the file or the template PLUMED_GRID.dat file. We recommend this setting since it provides a greater advantage in I/O speed compared to the HILLS file.
 
 
-```
+``` plumed
 # PLUMED
 ########################################
 # Check if the timesteps and temperature values are consistent with previous CpHMD settings
