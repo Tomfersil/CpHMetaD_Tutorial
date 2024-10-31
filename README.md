@@ -52,16 +52,26 @@ Effectively, certain degrees of freedom are more challenging to sample and can r
 
 In this tutorial, we are going to prepare a simple nucleoside system. Uridine is one of the four canonical RNA nucleosides with an experimental pKa of 9.22 [1](https://www.degruyter.com/document/doi/10.1515/znb-1968-0105/html). Despite being a simple system, it will initiate into conformational and protonation dynamics of nucleic acids. The chosen CVs are the $\chi$ angle and the sugar puckering.  
 
-<img src="images/Uridine_representation.png" alt="Cartoon representation of syn state Uridine." width="450"/>
-<img src="images/Uridine_representation_anti.png" alt="Cartoon representation of anti state Uridine." width="450"/>
+<figure align="center">
+<img src="images/Uridine_representation.png" alt="Cartoon representation of syn state Uridine." width="400"/>
+<em>Representation of uridine syn state. </em>
+</figure>
+
+<figure align="center">
+<img src="images/Uridine_representation_anti.png" alt="Cartoon representation of anti state Uridine." width="400"/>
+<em>Representation of uridine anti state.</em>
+</figure>
 
 The $\chi$ angle is a torsion defined by the O4'-C1'-N1-C2 for the uridine and it orients the relative position of the base to the ribose. There are two main states associated with the base-flipping: the syn state (-90º to 90º) and the anti state (90° to +180°; –90° to –180°). Considering the position of the titrable N3, when the moiety is facing the ribose is in the syn state and when facing the solvent is in the anti state. 
 
 The other CV choice relates to sugar puckering. In RNA, the sugar puckering defines the position of the C2' / C3' atoms relative to the ribose plane. If the C2' atom is above the plane, it is considered a C2'-endo conformation, while if it is the C3' atom, it is a C3'-endo conformation (see figure taken from [2](https://doi.org/10.3389/fgene.2022.95925). This property correlates with the position of the 2'OH and its' interactions with nucleobases, while also defining the RNA helix form.
 
+<figure>
 <img src="images/sugar_puckering.png" alt="Sugar puckering representation." width="450"/>
+<em>Representation of the C2' and C3' endo states. </em>
+</figure>
 
-In MD simulations, the transitions between C2'/C3' endo and syn/anti states can be difficult to converge, as slow degrees of freedom, therefore they are good CV choices. The preparation of a CpH-Metadynamics simulation follows a standard MD protocol: system setup, minimization, and initialization. However, some considerations need to be addressed for the $\chi$ OL3pH force field (available [here](https://github.com/Tomfersil/CpH-MetaD/tree/main/CpHMD_metaD/top/XOL3pH.ff)).
+   In MD simulations, the transitions between C2'/C3' endo and syn/anti states can be difficult to converge, as slow degrees of freedom, therefore they are good CV choices. The preparation of a CpH-Metadynamics simulation follows a standard MD protocol: system setup, minimization, and initialization. However, some considerations need to be addressed for the $\chi$ OL3pH force field (available [here](https://github.com/Tomfersil/CpH-MetaD/tree/main/CpHMD_metaD/top/XOL3pH.ff)).
 
 Our force field version was built in a modular approach compared to the standard $\chi$ OL3. As such, we need to convert the input .pdb file to be compatible with the CpH nomenclature found in force field .rtp file. This can be done manually or using the Python script available in the script folder. The script converts and reorganizes the .pdb file, thus identifying each ribose, phosphate group, nucleobase, and hydroxyl caps as independent residues. After preparing the CpH-compatible .pdb file, then a standard MD preparation protocol can be done before setting up the simulation.
 
@@ -90,13 +100,13 @@ export ionicstr=0.1 # Ionic Strength (moles/litre)
 
 In this section, we need to define the number of segments and the size of each segment in nanoseconds. In the following exercise, we will manage 100 ns trajectories partitioned into 10 segments of 10 ns each. Another important input is the choice of force field. Popular force fields were specifically modified to incorporate multiple protonation tautomers for different biomolecules (see: [CpHMD-v3.0 Github page](https://github.com/NunoFBOliveira/CpHMD_v3/tree/main)). In this tutorial, we will be studying a uridine nucleobase, so we will use the XOL3pH ff (see the [XOL3pH parametrization](https://github.com/Tomfersil/CpH-MetaD/tree/main/CpHMD_metaD/top/XOL3pH.ff)).
 
-Then it is possible to choose either to perform a plain CpHMD simulation or choose different options for a metadynamic simulation:
+Then it is possible to choose either to perform a plain CpHMD simulation or choose different options for a metadynamics simulation:
 
 - plumed=yes: performs a metadynamics simulation reading from the HILLS every cycle;
 - plumed=grid: stores both a GRID and HILLS file. Restarting a segment reads from the GRIDS file. Recommended setting due to speed;
-- plumed=static: performs a static potential simulation by reading a previous HILLS file. No more gaussians are added and continues to explore the CV space.
+- plumed=static: performs a static potential simulation by reading a previous HILLS file. No more Gaussians are added and continue to explore the CV space.
 
-The sites entry is needed to define the titrable sites based on the residue numbering in the .pdb file used as input. It accepts either a number or the all flag. Finally, we need to set system parameters such as the simulation temperature, the pH and the ionic strength (in mol/L) for the PB calculations. FOr more details on the CpHMD settings, check the work done by the Machuqueiro Lab in the previously linked GitHub pages.
+The "sites=" entry is needed to define the titrable sites based on the residue numbering in the .pdb file used as input. It accepts either a number or the all flag. Finally, we need to set system parameters such as the simulation temperature, the pH, and the ionic strength (in mol/L) for the PB calculations. For more details on the CpHMD settings, check the work done by the Machuqueiro Lab in the previously linked GitHub pages.
 
 Concerning the specific parameters for the metadynamics section, either check the end of the file or the template PLUMED_GRID.dat file. We recommend this setting since it provides a greater advantage in I/O speed compared to the HILLS file.
 
